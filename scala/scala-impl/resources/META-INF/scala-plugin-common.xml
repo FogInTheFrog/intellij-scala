@@ -21,6 +21,7 @@
         <extensionPoint qualifiedName="org.intellij.scala.unresolvedReferenceFixProvider" interface="org.jetbrains.plugins.scala.annotator.UnresolvedReferenceFixProvider" dynamic="true"/>
         <extensionPoint qualifiedName="org.intellij.scala.interpolatedStringMacroTypeProvider" interface="org.jetbrains.plugins.scala.lang.psi.impl.base.InterpolatedStringMacroTypeProvider" dynamic="true"/>
         <extensionPoint qualifiedName="org.intellij.scala.fileDeclarationsContributor" interface="org.jetbrains.plugins.scala.lang.psi.api.FileDeclarationsContributor" dynamic="true"/>
+        <extensionPoint qualifiedName="org.intellij.scala.searchByTypeContributor" interface="org.jetbrains.plugins.scala.searchByTypeContributor" dynamic="true"/>
 
         <!-- EP extracted during extraction of worksheet module -->
         <extensionPoint qualifiedName="org.intellij.scala.importUsedProvider" interface="org.jetbrains.plugins.scala.editor.importOptimizer.ImportInfoProvider" dynamic="true"/>
@@ -615,6 +616,8 @@
         <spellchecker.bundledDictionaryProvider implementation="org.jetbrains.plugins.scala.spellchecker.ScalaBundledDictionaryProvider"/>
         <spellchecker.support language="Scala" implementationClass="org.jetbrains.plugins.scala.spellchecker.ScalaSpellcheckingStrategy"/>
         <nameSuggestionProvider id="ScalaDictionarySuggestionProvider" implementation="org.jetbrains.plugins.scala.spellchecker.ScalaDictionarySuggestionProvider" order="first, before DictionarySuggestionProvider"/>
+
+        <searchEverywhereContributor implementation="org.jetbrains.plugins.scala.typeSearch.SearchByTypeSearchEverywhereContributor$Factory"/>
 
         <intentionAction>
             <categoryKey>intention.category.scala.type</categoryKey>
