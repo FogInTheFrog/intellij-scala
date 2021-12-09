@@ -617,7 +617,7 @@
         <spellchecker.support language="Scala" implementationClass="org.jetbrains.plugins.scala.spellchecker.ScalaSpellcheckingStrategy"/>
         <nameSuggestionProvider id="ScalaDictionarySuggestionProvider" implementation="org.jetbrains.plugins.scala.spellchecker.ScalaDictionarySuggestionProvider" order="first, before DictionarySuggestionProvider"/>
 
-        <searchEverywhereContributor implementation="org.jetbrains.plugins.scala.typeSearch.SearchByTypeSearchEverywhereContributor$Factory"/>
+        <searchEverywhereContributor implementation="org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor$Factory"/>
 
         <intentionAction>
             <categoryKey>intention.category.scala.type</categoryKey>
