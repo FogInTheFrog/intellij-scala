@@ -9,11 +9,14 @@ import com.intellij.openapi.util.NlsContexts
 import org.jetbrains.annotations.Nls
 import com.intellij.util.indexing.FindSymbolParameters
 
+import java.util
 import java.util.Comparator
 import javax.swing.ListCellRenderer
 
 
-class SearchStdFunctionByTypeModel(val project: Project) extends FilteringGotoByModel[AnyRef](project, ChooseByNameContributor.FILE_EP_NAME.getExtensionList) with DumbAware with Comparator[AnyRef] {
+class SearchStdFunctionByTypeModel(val project: Project) extends
+  FilteringGotoByModel[AnyRef](project, ChooseByNameContributor.FILE_EP_NAME.getExtensionList)
+    with DumbAware with Comparator[AnyRef] {
 
   def getItemProvider: SearchStdFunctionsByTypeItemProvider = {
     new SearchStdFunctionsByTypeItemProvider
@@ -39,29 +42,34 @@ class SearchStdFunctionByTypeModel(val project: Project) extends FilteringGotoBy
 
   override def getSeparators = new Array[String](0)
 
-  override def getFullName(element: Any): String = null
+  override def getFullName(element: Any): String = element.toString
 
   override def willOpenEditor = false
 
-  override def getListCellRenderer: ListCellRenderer[_] = new MyCellRenderer
+//  override def getListCellRenderer: ListCellRenderer[_] = new MyCellRenderer
 
   override def getNames(checkBoxState: Boolean): Array[String] = Array("elementy", "ekement")
 
   override def getElementsByName(name: String, parameters: FindSymbolParameters, canceled: ProgressIndicator): Array[AnyRef] = {
-    Array("123e", "234d", "1242")
+    Array("mockupFunctionA", "mockupFunctionB", "mockupFunctionC")
   }
 
   override def getHelpId: String = ???
 
-  override def useMiddleMatching(): Boolean = ???
+  override def useMiddleMatching(): Boolean = true
 
-  override def getElementsByName(name: String, checkBoxState: Boolean, pattern: String): Array[AnyRef] = Array("elementx", "ekement")
+  override def getElementsByName(name: String, checkBoxState: Boolean, pattern: String): Array[AnyRef] =
+    Array("elementx", "ekementx")
 
-  override def getElementName(element: Any): String = "element1"
+  override def getElementName(element: Any): String = "elementx"
 
-  override def filterValueFor(item: NavigationItem): AnyRef = "Absxd"
+  override def filterValueFor(item: NavigationItem): AnyRef = "e"
 
-  override def compare(x$1: AnyRef, x$2: AnyRef): Int = -1
+  override def compare(x$1: AnyRef, x$2: AnyRef): Int = 1
+
+//  override def getFilterItems: util.Collection[AnyRef] = return
+
+  override def acceptItem(item: NavigationItem): Boolean = true
 }
 
 

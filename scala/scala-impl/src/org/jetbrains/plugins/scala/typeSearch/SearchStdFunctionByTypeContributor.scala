@@ -27,6 +27,7 @@ import scala.language.postfixOps
 
 class MyCellRenderer() extends JLabel with ListCellRenderer[AnyRef] {
 //  setOpaque(true)
+  // FIXME: background color doesn't change for some reason
   override def getListCellRendererComponent(list: JList[_ <: AnyRef], value: AnyRef, index: Int, isSelected: Boolean, cellHasFocus: Boolean): Component = {
         setText(value.toString)
         var background: Color = null
@@ -41,12 +42,12 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[AnyRef] {
         else {
           if (isSelected) {
             background = Color.RED
-            foreground = Color.WHITE
+            foreground = Color.lightGray
             // unselected, and not the DnD drop location
           }
           else {
-            background = Color.WHITE
-            foreground = Color.BLACK
+            background = Color.RED
+            foreground = Color.lightGray
           }
         }
 
@@ -147,9 +148,12 @@ class SearchStdFunctionByTypeContributor(val event: AnActionEvent) extends Abstr
   final private val myFilter = null
 
   override def getGroupName: String = "Type Search"
-  override def getSortWeight = 200
+  override def getSortWeight = 1000
 
-//  override protected def createModel(project: Project): FilteringGotoByModel[FileTypeRef] = {
+  override def createModel(project: Project): FilteringGotoByModel[_] =
+    (new SearchStdFunctionByTypeModel(project))
+
+  //  override protected def createModel(project: Project): FilteringGotoByModel[FileTypeRef] = {
 //    val model = new GotoFileModel(project)
 //    if (myFilter != null) model.setFilterItems(myFilter.getSelectedElements)
 //    model
@@ -185,7 +189,6 @@ class SearchStdFunctionByTypeContributor(val event: AnActionEvent) extends Abstr
 //      return path
 //    }
 //    super.getDataForItem(element, dataId)
+    return Array("elementa", "elementb")
   }
-
-  override def createModel(project: Project): FilteringGotoByModel[_] = (new SearchStdFunctionByTypeModel(project)).asInstanceOf[FilteringGotoByModel[_]]
 }

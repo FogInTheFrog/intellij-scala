@@ -39,7 +39,7 @@ import scala.jdk.CollectionConverters._
 class SearchStdFunctionsByTypeItemProvider extends ChooseByNameItemProvider  {
 
   override def filterNames(base: ChooseByNameViewModel, names: Array[String], pattern: String): util.List[String] = {
-    val a = util.Arrays.asList("")
+    val a = util.Arrays.asList("element1")
     names.map {
       (name: String) => a.add(name)
     }
