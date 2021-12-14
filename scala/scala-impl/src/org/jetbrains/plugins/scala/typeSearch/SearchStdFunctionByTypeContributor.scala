@@ -146,8 +146,7 @@ class SearchStdFunctionByTypeContributor(val event: AnActionEvent) extends Abstr
 //  final private val myModelForRenderer = null
   final private val myFilter = null
 
-  override def getGroupName: String = "Grupa1"
-
+  override def getGroupName: String = "Type Search"
   override def getSortWeight = 200
 
 //  override protected def createModel(project: Project): FilteringGotoByModel[FileTypeRef] = {
