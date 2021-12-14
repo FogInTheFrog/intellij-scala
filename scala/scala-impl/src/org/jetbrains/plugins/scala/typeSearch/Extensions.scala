@@ -8,7 +8,7 @@ import java.util
 
 object Extensions {
   private val EXTENSION_POINT_NAME = "org.jetbrains.plugins.scala.SeachStdFunctionByTypeContributor"
-  private val extensionPoints = ExtensionPointName.create(EXTENSION_POINT_NAME)
+  private val extensionPoints = ExtensionPointName.create[ChooseByNameContributor](EXTENSION_POINT_NAME)
 
-  def getExtensions: util.List[ChooseByNameContributor] = extensionPoints.getExtensionList.asInstanceOf[util.List[ChooseByNameContributor]]
+  def getExtensions: util.List[ChooseByNameContributor] = extensionPoints.getExtensionList
 }
