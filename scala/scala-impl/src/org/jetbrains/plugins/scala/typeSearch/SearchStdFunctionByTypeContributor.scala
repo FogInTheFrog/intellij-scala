@@ -79,7 +79,5 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = true
 
-  override def getDataForItem(element: StdFunctionRef, dataId: String): AnyRef = {
-    "data"
-  }
+  override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
 }
