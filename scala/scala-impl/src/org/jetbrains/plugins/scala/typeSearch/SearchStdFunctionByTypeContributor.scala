@@ -5,8 +5,10 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.util.Processor
+import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 
 import java.awt.{Color, Component}
+import java.io.File
 import javax.swing.{JLabel, JList, ListCellRenderer}
 import scala.language.postfixOps
 
@@ -28,13 +30,13 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
       // check if this cell is selected
     }
     else if (isSelected) {
-      background = Color.RED
-      foreground = Color.WHITE
+      background = Color.PINK
+      foreground = Color.DARK_GRAY
       // unselected, and not the DnD drop location
     }
     else {
-      background = Color.WHITE
-      foreground = Color.BLACK
+      background = Color.DARK_GRAY
+      foreground = Color.LIGHT_GRAY
     }
 
     setBackground(background)
@@ -44,11 +46,14 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
 }
 
 object SearchStdFunctionByTypeContributor {
+  val file = new File("./scala/scala-impl/resources/inkuireTypeSearch")
+  var inkuireService = new InkuireService(file.toURI.toURL.toString())
+
   class Factory extends SearchEverywhereContributorFactory[AnyRef] {
     override def createContributor(initEvent: AnActionEvent): SearchEverywhereContributor[AnyRef] =
-     (new SearchStdFunctionByTypeContributor).asInstanceOf[SearchEverywhereContributor[AnyRef]]
-    // discuss
-//    override def getTab: SearchEverywhereTabDescriptor = SearchEverywhereTabDescriptor.IDE
+      (new SearchStdFunctionByTypeContributor).asInstanceOf[SearchEverywhereContributor[AnyRef]]
+    // TODO: discuss
+    // override def getTab: SearchEverywhereTabDescriptor = SearchEverywhereTabDescriptor.IDE
 
   }
 }
@@ -58,22 +63,31 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
   val cellRenderer = new MyCellRenderer
 
   override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new MyCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
+
   override def getSearchProviderId: String = getClass.getSimpleName
 
   override def getGroupName: String = "Type Search"
+
   override def getSortWeight = 1000
+
   // default is false
   override def isShownInSeparateTab: Boolean = true
+
   // default is true
   override def showInFindResults(): Boolean = false
 
 
-
   override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator, consumer: Processor[_ >: FoundItemDescriptor[StdFunctionRef]]): Unit = {
-    val element: StdFunctionRef = new StdFunctionRef("mockupFun 1")
-    val weight = 1
-    val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](element, weight)
-    consumer.process(itemDescriptor)
+    println("read pattern is: " + pattern)
+    val results = inkuireService.query(pattern)
+    println("Results found: " + results.size)
+    for (result <- results) {
+      val element: StdFunctionRef = new StdFunctionRef(result.name)
+      val weight = 1
+      val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](element, weight)
+      consumer.process(itemDescriptor)
+    }
+
   }
 
 
@@ -81,3 +95,4 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
 }
+

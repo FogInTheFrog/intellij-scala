@@ -222,6 +222,10 @@ lazy val scalaImpl: sbt.Project =
       ideExcludedDirectories := Seq(baseDirectory.value / "testdata" / "projects"),
       //scalacOptions in Global += "-Xmacro-settings:analyze-caches",
       libraryDependencies ++= DependencyGroups.scalaCommunity,
+
+      // https://mvnrepository.com/artifact/org.virtuslab/inkuire-engine
+      libraryDependencies += "org.virtuslab" %% "inkuire-engine" % "1.0.0-M5",
+
       intellijPlugins ++= Seq(
         "org.intellij.intelliLang",
         "com.intellij.java-i18n",
