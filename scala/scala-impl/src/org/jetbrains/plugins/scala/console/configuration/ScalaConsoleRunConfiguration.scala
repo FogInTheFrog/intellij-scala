@@ -1,8 +1,7 @@
 package org.jetbrains.plugins.scala.console.configuration
 
-import java.io.File
 import com.intellij.execution._
-import com.intellij.execution.configurations.{ConfigurationFactory, JavaParameters, _}
+import com.intellij.execution.configurations._
 import com.intellij.execution.runners.{ExecutionEnvironment, ProgramRunner}
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.options.SettingsEditor
@@ -16,10 +15,11 @@ import org.jetbrains.annotations.{ApiStatus, Nls}
 import org.jetbrains.plugins.scala.ScalaBundle
 import org.jetbrains.plugins.scala.console.ScalaLanguageConsole
 import org.jetbrains.plugins.scala.console.configuration.ScalaSdkJLineFixer.{JlineResolveResult, showJLineMissingNotification}
+import org.jetbrains.plugins.scala.extensions.OptionExt
 import org.jetbrains.plugins.scala.project._
 import org.jetbrains.plugins.scala.util.JdomExternalizerMigrationHelper
-import org.jetbrains.sbt.RichOption
 
+import java.io.File
 import scala.beans.BeanProperty
 import scala.jdk.CollectionConverters._
 

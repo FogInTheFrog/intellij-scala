@@ -1,7 +1,6 @@
 package org.jetbrains.bsp.project.importing.preimport
 
-import java.io.File
-
+import com.intellij.execution.target.local.LocalTargetEnvironmentRequest
 import com.intellij.openapi.projectRoots.{JavaSdk, ProjectJdkTable}
 import com.intellij.openapi.util.io.FileUtil
 import org.jetbrains.bsp.BspBundle
@@ -11,9 +10,10 @@ import org.jetbrains.plugins.scala.extensions.invokeAndWait
 import org.jetbrains.plugins.scala.project.Version
 import org.jetbrains.sbt.SbtUtil.{detectSbtVersion, getDefaultLauncher, sbtVersionParam, upgradedSbtVersion}
 import org.jetbrains.sbt.project.SbtExternalSystemManager
-import org.jetbrains.sbt.project.structure.SbtStructureDump
+import org.jetbrains.sbt.project.structure.{JavaParamsForSbtStructureDump, SbtStructureDump}
 import org.jetbrains.sbt.{Sbt, SbtUtil}
 
+import java.io.File
 import scala.util.Try
 
 class BloopPreImporter(dumper: SbtStructureDump, runDump: SbtStructureDump => Try[BuildMessages])
@@ -33,7 +33,7 @@ object BloopPreImporter {
 
     val injectedPlugins = s"""addSbtPlugin("ch.epfl.scala" % "sbt-bloop" % "${BuildInfo.bloopVersion}")"""
     val pluginFile = FileUtil.createTempFile("idea",Sbt.Extension, true)
-    val pluginFilePath = SbtUtil.normalizePath(pluginFile)
+    val pluginFilePath = SbtUtil.canonicalPathForSbtShellInput(pluginFile)
     FileUtil.writeToFile(pluginFile, injectedPlugins)
 
     val injectedSettings = """bloopExportJarClassifiers in Global := Some(Set("sources"))"""
@@ -57,8 +57,12 @@ object BloopPreImporter {
     try {
       val dumper = new SbtStructureDump()
       val runDump = (dumper: SbtStructureDump) => dumper.runSbt(
-        baseDir, jdkExe, vmArgs,
-        Map.empty, sbtLauncher, sbtCommandArgs, sbtCommands,
+        new LocalTargetEnvironmentRequest, //TODO: SCL-19924
+        baseDir,
+        JavaParamsForSbtStructureDump(jdkExe, vmArgs, Map.empty),
+        sbtLauncher,
+        sbtCommandArgs,
+        sbtCommands,
         BspBundle.message("bsp.resolver.creating.bloop.configuration.from.sbt"),
       )
       new BloopPreImporter(dumper, runDump)

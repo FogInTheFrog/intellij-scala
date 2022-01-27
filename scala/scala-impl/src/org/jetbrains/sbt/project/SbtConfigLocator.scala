@@ -1,14 +1,14 @@
 package org.jetbrains.sbt
 package project
 
-import java.io.File
-import java.util
-
 import com.intellij.openapi.externalSystem.model.ProjectSystemId
 import com.intellij.openapi.externalSystem.service.settings.ExternalSystemConfigLocator
 import com.intellij.openapi.externalSystem.settings.ExternalProjectSettings
 import com.intellij.openapi.vfs.{LocalFileSystem, VirtualFile}
+import org.jetbrains.plugins.scala.extensions.OptionExt
 
+import java.io.File
+import java.util
 import scala.jdk.CollectionConverters._
 
 /**

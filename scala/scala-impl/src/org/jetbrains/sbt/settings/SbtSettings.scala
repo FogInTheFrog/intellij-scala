@@ -1,8 +1,6 @@
 package org.jetbrains.sbt
 package settings
 
-import java.util
-
 import com.intellij.openapi.components._
 import com.intellij.openapi.externalSystem.settings.{AbstractExternalSystemSettings, ExternalSystemSettingsListener}
 import com.intellij.openapi.externalSystem.util.ExternalSystemApiUtil
@@ -10,10 +8,12 @@ import com.intellij.openapi.module.Module
 import com.intellij.openapi.project.Project
 import com.intellij.util.xmlb.annotations.XCollection
 import org.jetbrains.annotations.NotNull
+import org.jetbrains.plugins.scala.extensions.OptionExt
 import org.jetbrains.plugins.scala.project.ProjectExt
 import org.jetbrains.sbt.project.settings.{SbtProjectSettings, SbtProjectSettingsListener, SbtProjectSettingsListenerAdapter, SbtTopic}
 import org.jetbrains.sbt.settings.SbtSettings.defaultMaxHeapSize
 
+import java.util
 import scala.beans.BeanProperty
 
 /**
@@ -79,14 +79,21 @@ final class SbtSettings(project: Project)
     customSbtStructurePath = settings.customSbtStructurePath
   }
 
-  def getLinkedProjectSettings(module: Module): Option[SbtProjectSettings] =
-    Option(ExternalSystemApiUtil.getExternalRootProjectPath(module)).safeMap(getLinkedProjectSettings)
+  def getLinkedProjectSettings(module: Module): Option[SbtProjectSettings] = {
+    val rootPath = ExternalSystemApiUtil.getExternalRootProjectPath(module)
+    Option(rootPath).safeMap(getLinkedProjectSettings)
+  }
 
-  override def getLinkedProjectSettings(linkedProjectPath: String): SbtProjectSettings =
-    super.getLinkedProjectSettings(linkedProjectPath) match {
-      case null => super.getLinkedProjectSettings(ExternalSystemApiUtil.normalizePath(linkedProjectPath))
-      case settings => settings
+  override def getLinkedProjectSettings(linkedProjectPath: String): SbtProjectSettings = {
+    val result1 = super.getLinkedProjectSettings(linkedProjectPath)
+    result1 match {
+      case null =>
+        val result2 = super.getLinkedProjectSettings(ExternalSystemApiUtil.normalizePath(linkedProjectPath))
+        result2
+      case settings =>
+        settings
     }
+  }
 
   override def checkSettings(old: SbtProjectSettings, current: SbtProjectSettings): Unit = {}
 }

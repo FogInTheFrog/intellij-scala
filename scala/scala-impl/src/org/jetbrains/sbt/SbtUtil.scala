@@ -35,11 +35,9 @@ object SbtUtil {
     ExternalSystemApiUtil.isExternalSystemAwareModule(SbtProjectSystem.Id, module)
 
   def isSbtProject(project: Project): Boolean = {
-    val settings = ExternalSystemApiUtil
-      .getSettings(project, SbtProjectSystem.Id)
-      .getLinkedProjectsSettings
-
-    ! settings.isEmpty
+    val settings = ExternalSystemApiUtil.getSettings(project, SbtProjectSystem.Id)
+    val linkedSettings = settings.getLinkedProjectsSettings
+    !linkedSettings.isEmpty
   }
 
   /** Directory for global sbt plugins given sbt version */
@@ -248,7 +246,8 @@ object SbtUtil {
   def getDefaultLauncher: File = getLauncherDir / "sbt-launch.jar"
 
   /** Normalizes pathname so that backslashes don't get interpreted as escape characters in interpolated strings. */
-  def normalizePath(file: File): String = file.getAbsolutePath.replace('\\', '/')
+  def canonicalPathForSbtShellInput(file: File): String = pathForSbtShellInput(file.getCanonicalPath)
+  def pathForSbtShellInput(path: String): String = path.replace('\\', '/')
 
   def latestCompatibleVersion(version: Version): Version = {
     val major = version.major(2)

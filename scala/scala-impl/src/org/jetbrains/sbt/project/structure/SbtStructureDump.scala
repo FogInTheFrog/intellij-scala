@@ -1,10 +1,13 @@
 package org.jetbrains.sbt.project.structure
 
 import com.intellij.build.events.impl.{FailureResultImpl, SkippedResultImpl, SuccessResultImpl}
+import com.intellij.execution.configurations.ParametersList
 import com.intellij.execution.process.OSProcessHandler
+import com.intellij.execution.target.{TargetEnvironmentRequest, TargetProgressIndicator}
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.externalSystem.model.ExternalSystemException
+import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.SystemInfo
 import org.jetbrains.annotations.{Nls, NonNls}
@@ -44,12 +47,13 @@ class SbtStructureDump {
 
   def cancel(): Unit = cancellationFlag.set(true)
 
-  def dumpFromShell(project: Project,
-                    structureFilePath: String,
-                    options: Seq[String],
-                    reporter: BuildReporter,
-                    preferScala2: Boolean,
-                   ): Future[BuildMessages] = {
+  def dumpFromShell(
+    project: Project,
+    structureFilePath: String,
+    options: Seq[String],
+    reporter: BuildReporter,
+    preferScala2: Boolean,
+  ): Future[BuildMessages] = {
 
     reporter.start()
 
@@ -64,32 +68,30 @@ class SbtStructureDump {
         ideaPort.fold("")(port => s"; set ideaPort in Global := $port")
       } else ""
 
-    val cmd = s";reload; $setCmd ;${if (preferScala2) "preferScala2;" else ""}*/*:dumpStructureTo $structureFilePath; session clear-all $ideaPortSetting"
+    val cmd = s";reload" +
+      s" ; $setCmd" +
+      s" ; ${if (preferScala2) "preferScala2;" else ""}*/*:dumpStructureTo ${pathForSbtShellInput(structureFilePath)}" +
+      s" ; session clear-all $ideaPortSetting"
     val aggregator = shellMessageAggregator(EventId(s"dump:${UUID.randomUUID()}"), shell, reporter)
 
     shell.command(cmd, BuildMessages.empty, aggregator)
   }
 
-  def dumpFromProcess(directory: File,
-                      structureFilePath: String,
-                      options: Seq[String],
-                      vmExecutable: File,
-                      vmOptions: Seq[String],
-                      environment: Map[String, String],
-                      sbtLauncher: File,
-                      sbtStructureJar: File,
-                      preferScala2: Boolean,
-                     )
-                     (implicit reporter: BuildReporter)
-  : Try[BuildMessages] = {
+  def dumpFromProcess(
+    request: TargetEnvironmentRequest,
+    directory: File,
+    structureParams: SbtStructureParams,
+    javaParams: JavaParamsForSbtStructureDump,
+    sbtLauncher: File,
+  )(implicit reporter: BuildReporter): Try[BuildMessages] = {
 
-    val optString = options.mkString(", ")
+    val sbtStructureOptionsConcat = structureParams.sbtStructureOptions.mkString(", ")
 
     val setCommands = Seq(
-      """historyPath := None""",
+      s"""historyPath := None""",
       s"""shellPrompt := { _ => "" }""",
-      s"""SettingKey[_root_.scala.Option[_root_.sbt.File]]("sbtStructureOutputFile") in _root_.sbt.Global := _root_.scala.Some(_root_.sbt.file("$structureFilePath"))""",
-      s"""SettingKey[_root_.java.lang.String]("sbtStructureOptions") in _root_.sbt.Global := "$optString""""
+      s"""SettingKey[_root_.scala.Option[_root_.sbt.File]]("sbtStructureOutputFile") in _root_.sbt.Global := _root_.scala.Some(_root_.sbt.file("${pathForSbtShellInput(structureParams.sbtStructureOutputFilePath)}"))""",
+      s"""SettingKey[_root_.java.lang.String]("sbtStructureOptions") in _root_.sbt.Global := "$sbtStructureOptionsConcat""""
     ).mkString("set _root_.scala.collection.Seq(", ",", ")")
 
     val sbtCommandArgs = List.empty
@@ -97,16 +99,19 @@ class SbtStructureDump {
     val sbtCommands = (
       Seq(
         setCommands,
-        s"""apply -cp "${normalizePath(sbtStructureJar)}" org.jetbrains.sbt.CreateTasks"""
+        s"""apply -cp "${structureParams.sbtStructureJarCanonicalPath}" org.jetbrains.sbt.CreateTasks"""
       ) :++
-      (if (preferScala2) Seq("preferScala2") else Seq.empty) :+
-      s"*/*:dumpStructure"
-    ).mkString(";", ";", "")
-
+        (if (structureParams.preferScala2) Seq("preferScala2") else Seq.empty) :+
+        s"*/*:dumpStructure"
+      ).mkString(";", ";", "")
 
     runSbt(
-      directory, vmExecutable, vmOptions, environment,
-      sbtLauncher, sbtCommandArgs, sbtCommands,
+      request,
+      directory,
+      javaParams,
+      sbtLauncher,
+      sbtCommandArgs,
+      sbtCommands,
       SbtBundle.message("sbt.extracting.project.structure.from.sbt")
     )
   }
@@ -147,30 +152,26 @@ class SbtStructureDump {
   }
 
   /** Run sbt with some sbt commands. */
-  def runSbt(directory: File,
-             vmExecutable: File,
-             vmOptions: Seq[String],
-             environment0: Map[String, String],
-             sbtLauncher: File,
-             sbtCommandLineArgs: List[String],
-             @NonNls sbtCommands: String,
-             @Nls reportMessage: String,
-            )
-            (implicit reporter: BuildReporter)
-  : Try[BuildMessages] = {
+  def runSbt(
+    request: TargetEnvironmentRequest,
+    directory: File,
+    javaParams: JavaParamsForSbtStructureDump,
+    sbtLauncher: File,
+    sbtCommandLineArgs: List[String],
+    @NonNls sbtCommands: String,
+    @Nls reportMessage: String,
+  )(implicit reporter: BuildReporter): Try[BuildMessages] = {
 
     val environment = if (ApplicationManager.getApplication.isUnitTestMode && SystemInfo.isWindows) {
       val extraEnvs = defaultCoursierDirectoriesAsEnvVariables()
-      environment0 ++ extraEnvs
+      javaParams.environment ++ extraEnvs
     }
-    else environment0
+    else javaParams.environment
 
     Log.debugSafe(
       s"""runSbt
          |  directory: $directory,
-         |  vmExecutable: $vmExecutable,
-         |  vmOptions: $vmOptions,
-         |  environment: $environment,
+         |  javaParams: $javaParams
          |  sbtLauncher: $sbtLauncher,
          |  sbtCommandLineArgs: $sbtCommandLineArgs,
          |  sbtCommands: $sbtCommands,
@@ -180,36 +181,38 @@ class SbtStructureDump {
     val startTime = System.currentTimeMillis()
     // assuming here that this method might still be called without valid project
 
-    val jvmOptions = SbtOpts.loadFrom(directory) ++ JvmOpts.loadFrom(directory) ++ vmOptions
+    val jvmOptions: Seq[String] =
+      SbtOpts.loadFrom(directory) ++ JvmOpts.loadFrom(directory) ++ javaParams.vmOptions
 
-    val processCommandsRaw =
-      List(
-        normalizePath(vmExecutable),
-        "-Djline.terminal=jline.UnsupportedTerminal",
-        "-Dsbt.log.noformat=true",
-        "-Dfile.encoding=UTF-8") ++
-      jvmOptions ++
-      List("-jar", normalizePath(sbtLauncher)) ++
-      sbtCommandLineArgs // :+ "--debug"
+    val simpleJavaParameters: MySimpleJavaParameters = {
+      val jp = new MySimpleJavaParameters
+      jp.setWorkingDirectory(directory)
+      jp.vmExecutable = Option(javaParams.vmExecutable)
 
-    val processCommands = processCommandsRaw.filterNot(_.isEmpty)
+      val vmList: ParametersList = jp.getVMParametersList
+      vmList.addAll(jvmOptions: _*)
+
+      vmList.addProperty("jline.terminal", "jline.UnsupportedTerminal")
+      vmList.addProperty("sbt.log.noformat", "true")
+      if (vmList.getPropertyValue("file.encoding") == null) {
+        //can be passed via jvmOptions
+        vmList.addProperty("file.encoding", "UTF-8")
+      }
+
+      jp.setJarPath(sbtLauncher.getCanonicalPath)
+
+      val programParams = jp.getProgramParametersList
+      programParams.addAll(sbtCommandLineArgs: _*)
+      //programParams.add("--debug")
+
+      jp.setEnv(environment.asJava)
+      jp
+    }
 
     val dumpTaskId = EventId(s"dump:${UUID.randomUUID()}")
     reporter.startTask(dumpTaskId, None, reportMessage, startTime)
 
-    val resultMessages = Try {
-      val processBuilder = new ProcessBuilder(processCommands.asJava)
-      processBuilder.directory(directory)
-      processBuilder.environment().putAll(environment.asJava)
-      val procString = processBuilder.command().asScala.mkString(" ")
-      reporter.log(procString)
-
-      Log.debugSafe(
-        s"""processBuilder.start()
-           |  command line: ${processBuilder.command().asScala.mkString(" ")}""".stripMargin
-      )
-      processBuilder.start()
-    }
+    val resultMessages = startSbtProcess(request, simpleJavaParameters, reporter)
       .flatMap { process =>
         Using.resource(new PrintWriter(new BufferedWriter(new OutputStreamWriter(process.getOutputStream, "UTF-8")))) { writer =>
           writer.println(sbtCommands)
@@ -246,14 +249,35 @@ class SbtStructureDump {
     resultMessages
   }
 
-  private def handle(process: Process,
-                     dumpTaskId: EventId,
-                     reporter: BuildReporter
-                    ): Try[BuildMessages] = {
+  private def startSbtProcess(
+    request: TargetEnvironmentRequest,
+    simpleJavaParameters: MySimpleJavaParameters,
+    reporter: BuildReporter,
+  ): Try[Process] = Try {
+    val commandLineBuilder = simpleJavaParameters.toCommandLine(request)
+    val targetedCommandLine = commandLineBuilder.build()
+    val targetEnvironment = request.prepareEnvironment(TargetProgressIndicator.EMPTY)
+    //NOTE: looks like currently progress indicator is ignored under the hood in all implementations, not sure what it is for so passing EmptyProgressIndicator
+    val process = targetEnvironment.createProcess(targetedCommandLine, new EmptyProgressIndicator)
 
+    val commandLineString = targetedCommandLine.collectCommandsSynchronously().asScala.mkString(" ")
+    reporter.log(commandLineString)
+    Log.debugSafe(
+      s"""processBuilder.start()
+         |  command line: $commandLineString""".stripMargin
+    )
+
+    process
+  }
+
+  private def handle(
+    process: Process,
+    dumpTaskId: EventId,
+    reporter: BuildReporter
+  ): Try[BuildMessages] = {
     var messages = BuildMessages.empty
 
-   def update(typ: OutputType, textRaw: String): Unit = {
+    def update(typ: OutputType, textRaw: String): Unit = {
       val text = textRaw.trim
 
       if (text.nonEmpty) {
@@ -294,7 +318,7 @@ class SbtStructureDump {
 
     val handler = new OSProcessHandler(process, "sbt import", Charset.forName("UTF-8"))
     // TODO: rewrite this code, do not use try, throw
-    val result = Try {
+    val result: Try[BuildMessages] = Try {
       handler.addProcessListener(new ListenerAdapter(processListener))
       Log.debug("handler.startNotify()")
       handler.startNotify()
@@ -353,10 +377,11 @@ object SbtStructureDump {
     } else messages
   }
 
-  private def shellMessageAggregator(dumpTaskId: EventId,
-                                     shell: SbtShellCommunication,
-                                     reporter: BuildReporter,
-                                   ): EventAggregator[BuildMessages] = {
+  private def shellMessageAggregator(
+    dumpTaskId: EventId,
+    shell: SbtShellCommunication,
+    reporter: BuildReporter,
+  ): EventAggregator[BuildMessages] = {
     case (messages, TaskStart) =>
       reporter.startTask(dumpTaskId, None, SbtBundle.message("sbt.extracting.project.structure.from.sbt.shell"))
       messages
@@ -402,3 +427,16 @@ object SbtStructureDump {
   case object ShellImport extends ImportType
   case object ProcessImport extends ImportType
 }
+
+case class SbtStructureParams(
+  sbtStructureJarCanonicalPath: String,
+  sbtStructureOutputFilePath: String,
+  sbtStructureOptions: Seq[String],
+  preferScala2: Boolean
+)
+
+case class JavaParamsForSbtStructureDump(
+  vmExecutable: File,
+  vmOptions: Seq[String],
+  environment: Map[String, String],
+)

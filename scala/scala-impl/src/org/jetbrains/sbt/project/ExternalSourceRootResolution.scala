@@ -1,15 +1,15 @@
 package org.jetbrains.sbt
 package project
 
-import java.io.File
-
 import com.intellij.openapi.externalSystem.model.ExternalSystemException
 import com.intellij.openapi.externalSystem.model.project.ExternalSystemSourceType
-import com.intellij.openapi.util.io.FileUtilRt
-import org.jetbrains.sbt.project.data.{ContentRootNode, LibraryNode, ModuleDependencyNode, ModuleNode, ModuleSdkNode}
+import com.intellij.openapi.util.io.{FileUtil, FileUtilRt}
+import org.jetbrains.sbt.project.data._
 import org.jetbrains.sbt.project.sources.SharedSourcesModuleType
 import org.jetbrains.sbt.structure.ProjectData
 import org.jetbrains.sbt.{structure => sbtStructure}
+
+import java.io.File
 
 /**
  * @author Pavel Fatin
@@ -97,14 +97,19 @@ trait ExternalSourceRootResolution { self: SbtProjectResolver =>
   }
 
   private def createSourceModule(group: RootGroup, moduleFilesDirectory: File): ModuleNode = {
-    val moduleNode = new ModuleNode(SharedSourcesModuleType.instance.getId,
-      group.name, group.name, moduleFilesDirectory.path, group.base.canonicalPath)
+    val moduleNode = new ModuleNode(
+      SharedSourcesModuleType.instance.getId,
+      group.name,
+      group.name,
+      moduleFilesDirectory.getPath,
+      FileUtil.toSystemIndependentName(group.base.getCanonicalPath)
+    )
 
     val contentRootNode = {
-      val node = new ContentRootNode(group.base.path)
+      val node = new ContentRootNode(group.base.getPath)
 
       group.roots.foreach { root =>
-        node.storePath(scopeAndKindToSourceType(root.scope, root.kind), root.directory.path)
+        node.storePath(scopeAndKindToSourceType(root.scope, root.kind), root.directory.getPath)
       }
 
       node
@@ -182,7 +187,7 @@ trait ExternalSourceRootResolution { self: SbtProjectResolver =>
     relevantConfigurations.flatMap { configuration =>
       def createRoot(kind: Root.Kind)(directory: sbtStructure.DirectoryData) = {
         val scope = if (configuration.id == "compile") Root.Scope.Compile else Root.Scope.Test
-        Root(scope, kind, directory.file.canonicalFile)
+        Root(scope, kind, directory.file)
       }
 
       configuration.sources.map(createRoot(Root.Kind.Sources)) ++

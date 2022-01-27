@@ -1,6 +1,5 @@
 package org.jetbrains.bsp.project.importing.setup
-import java.io.File
-
+import com.intellij.execution.target.local.LocalTargetEnvironmentRequest
 import com.intellij.openapi.projectRoots.{JavaSdk, ProjectJdkTable}
 import org.jetbrains.bsp.BspBundle
 import org.jetbrains.plugins.scala.build.{BuildMessages, BuildReporter}
@@ -9,8 +8,9 @@ import org.jetbrains.plugins.scala.project.Version
 import org.jetbrains.sbt.SbtUtil
 import org.jetbrains.sbt.SbtUtil.{detectSbtVersion, getDefaultLauncher, sbtVersionParam, upgradedSbtVersion}
 import org.jetbrains.sbt.project.SbtExternalSystemManager
-import org.jetbrains.sbt.project.structure.SbtStructureDump
+import org.jetbrains.sbt.project.structure.{JavaParamsForSbtStructureDump, SbtStructureDump}
 
+import java.io.File
 import scala.util.Try
 
 class SbtConfigSetup(dumper: SbtStructureDump, runInit: BuildReporter => Try[BuildMessages]) extends BspConfigSetup {
@@ -46,8 +46,10 @@ object SbtConfigSetup {
 
     val dumper = new SbtStructureDump()
     val runInit = (reporter: BuildReporter) => dumper.runSbt(
-      baseDir, jdkExe, vmArgs,
-      Map.empty, sbtLauncher, sbtCommandLineArgs, sbtCommands,
+      new LocalTargetEnvironmentRequest, //TODO: SCL-19924
+      baseDir,
+      JavaParamsForSbtStructureDump(jdkExe, vmArgs, Map.empty),
+      sbtLauncher, sbtCommandLineArgs, sbtCommands,
       BspBundle.message("bsp.resolver.creating.sbt.configuration"),
     )(reporter)
     new SbtConfigSetup(dumper, runInit)

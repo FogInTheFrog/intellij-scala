@@ -7,6 +7,7 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi._
 import com.intellij.psi.search.{FilenameIndex, GlobalSearchScope}
 import com.intellij.util.ProcessingContext
+import org.jetbrains.plugins.scala.extensions.OptionExt
 import org.jetbrains.plugins.scala.lang.psi.api.ScalaRecursiveElementVisitor
 import org.jetbrains.plugins.scala.lang.psi.api.base.literals.ScStringLiteral
 import org.jetbrains.plugins.scala.lang.psi.api.base.{ScConstructorInvocation, ScLiteral}

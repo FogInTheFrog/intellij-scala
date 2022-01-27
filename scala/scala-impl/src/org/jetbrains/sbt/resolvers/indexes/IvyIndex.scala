@@ -232,7 +232,7 @@ class IvyIndex(val root: String, val name: String, implicit val project: Project
     private val enableFQNameIndex = ScalaProjectSettings.getInstance(project.project).getIvy2IndexingMode == Ivy2IndexingMode.Classes
 
     private val ivyFileFilter = new FileFilter {
-      override def accept(file: File): Boolean = file.name.endsWith(".xml")
+      override def accept(file: File): Boolean = file.getName.endsWith(".xml")
     }
 
     def artifacts: LazyList[ArtifactInfo] = listArtifacts(cacheDir)
@@ -246,7 +246,7 @@ class IvyIndex(val root: String, val name: String, implicit val project: Project
         val classExt = ".class"
 
         val entries = jarFile.entries().asScala
-          .filter(e => (e.getName.endsWith(classExt) && !e.getName.contains("$")) ||
+          .filter(e => e.getName.endsWith(classExt) && !e.getName.contains("$") ||
             e.getName.endsWith("/") || e.getName.endsWith("\\"))
 
         entries
