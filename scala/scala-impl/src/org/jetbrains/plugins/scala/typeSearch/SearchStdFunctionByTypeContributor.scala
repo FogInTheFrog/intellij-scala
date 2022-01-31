@@ -6,20 +6,21 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.util.Processor
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
+import org.virtuslab.inkuire.engine.common.model.ITID
 
 import java.awt.{Color, Component}
 import java.io.File
 import javax.swing.{JLabel, JList, ListCellRenderer}
 import scala.language.postfixOps
 
-class StdFunctionRef(val name: String) {
+class StdFunctionRef(val name: String, val packageName: String) {
 }
 
 class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
   setOpaque(true)
 
   override def getListCellRendererComponent(list: JList[_ <: StdFunctionRef], value: StdFunctionRef, index: Int, isSelected: Boolean, cellHasFocus: Boolean): Component = {
-    setText(value.name)
+    setText(value.name + ":   (" + value.packageName + ")")
     var background: Color = null
     var foreground: Color = null
     // check if this cell represents the current DnD drop location
@@ -35,7 +36,7 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
       // unselected, and not the DnD drop location
     }
     else {
-      background = Color.DARK_GRAY
+      background = null
       foreground = Color.LIGHT_GRAY
     }
 
@@ -81,15 +82,26 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
     println("read pattern is: " + pattern)
     val results = inkuireService.query(pattern)
     println("Results found: " + results.size)
+
     for (result <- results) {
-      val element: StdFunctionRef = new StdFunctionRef(result.name)
+      var arguments = ""
+      for (signatureArgument <- result.signature.arguments) {
+        val argument = if (signatureArgument.typ.itid.isDefined) {
+          signatureArgument.typ.itid.get.uuid
+        }
+        else {
+          ""
+        }
+        arguments += argument
+      }
+
+      val element: StdFunctionRef = new StdFunctionRef(result.name, arguments)
       val weight = 1
       val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](element, weight)
       consumer.process(itemDescriptor)
     }
 
   }
-
 
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = true
 
