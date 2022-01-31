@@ -6,34 +6,45 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.util.Processor
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
-import org.virtuslab.inkuire.engine.common.model.ITID
+import org.virtuslab.inkuire.engine.common.model.ExternalSignature
+import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
 
 import java.awt.{Color, Component}
 import java.io.File
 import javax.swing.{JLabel, JList, ListCellRenderer}
 import scala.language.postfixOps
 
-class StdFunctionRef(val name: String, val packageName: String) {
+class StdFunctionRef(val externalSignature: ExternalSignature) {
 }
 
 class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
   setOpaque(true)
 
-  override def getListCellRendererComponent(list: JList[_ <: StdFunctionRef], value: StdFunctionRef, index: Int, isSelected: Boolean, cellHasFocus: Boolean): Component = {
-    setText(value.name + ":   (" + value.packageName + ")")
+  override def getListCellRendererComponent(list: JList[_ <: StdFunctionRef], value: StdFunctionRef, index: Int,
+                                            isSelected: Boolean, cellHasFocus: Boolean): Component = {
+
+    // Adjust printed text
+    val prettifier = new ScalaExternalSignaturePrettifier
+    val functionName = value.externalSignature.name
+    val prettyContext = prettifier.prettify(value.externalSignature)
+
+    setText(functionName + ": " + prettyContext)
+
+    // Set colors
     var background: Color = null
     var foreground: Color = null
-    // check if this cell represents the current DnD drop location
     val dropLocation = list.getDropLocation
+
+    // check if this cell is selected
     if (dropLocation != null && !dropLocation.isInsert && dropLocation.getIndex == index) {
       background = Color.BLUE
       foreground = Color.WHITE
-      // check if this cell is selected
+
     }
     else if (isSelected) {
       background = Color.PINK
       foreground = Color.DARK_GRAY
-      // unselected, and not the DnD drop location
+
     }
     else {
       background = null
@@ -48,13 +59,13 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
 
 object SearchStdFunctionByTypeContributor {
   val file = new File("./scala/scala-impl/resources/inkuireTypeSearch")
-  var inkuireService = new InkuireService(file.toURI.toURL.toString())
+  var inkuireService = new InkuireService(file.toURI.toURL.toString)
 
   class Factory extends SearchEverywhereContributorFactory[AnyRef] {
     override def createContributor(initEvent: AnActionEvent): SearchEverywhereContributor[AnyRef] =
       (new SearchStdFunctionByTypeContributor).asInstanceOf[SearchEverywhereContributor[AnyRef]]
     // TODO: discuss
-    // override def getTab: SearchEverywhereTabDescriptor = SearchEverywhereTabDescriptor.IDE
+//    override def getTab: SearchEverywhereTabDescriptor = SearchEverywhereTabDescriptor.IDE
 
   }
 }
@@ -77,27 +88,39 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
   // default is true
   override def showInFindResults(): Boolean = false
 
+  // Simple accuracy measure
+  def calculateWeightOfMatch(pattern: String, element: StdFunctionRef): Int = {
+    val patternParameters = pattern.split("=>").map(s => s.trim)
+    val prettifier = new ScalaExternalSignaturePrettifier
+    val elementParametersStringified = prettifier.prettify(element.externalSignature)
+
+    val weight = {
+      if (elementParametersStringified == pattern) {
+        100
+      }
+      else {
+        var ctr = 0
+        for (parameter <- patternParameters) {
+
+          val isMatch = if (elementParametersStringified.contains(parameter)) 1 else 0
+          println(pattern, ": ", parameter, isMatch)
+          ctr += isMatch
+        }
+        ctr
+      }
+    }
+
+    weight
+  }
 
   override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator, consumer: Processor[_ >: FoundItemDescriptor[StdFunctionRef]]): Unit = {
-    println("read pattern is: " + pattern)
     val results = inkuireService.query(pattern)
-    println("Results found: " + results.size)
 
     for (result <- results) {
-      var arguments = ""
-      for (signatureArgument <- result.signature.arguments) {
-        val argument = if (signatureArgument.typ.itid.isDefined) {
-          signatureArgument.typ.itid.get.uuid
-        }
-        else {
-          ""
-        }
-        arguments += argument
-      }
-
-      val element: StdFunctionRef = new StdFunctionRef(result.name, arguments)
-      val weight = 1
+      val element: StdFunctionRef = new StdFunctionRef(result)
+      val weight = calculateWeightOfMatch(pattern, element)
       val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](element, weight)
+
       consumer.process(itemDescriptor)
     }
 
@@ -107,4 +130,5 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
 }
+
 
