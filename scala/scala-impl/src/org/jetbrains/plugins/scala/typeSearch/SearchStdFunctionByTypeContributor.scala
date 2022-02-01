@@ -1,10 +1,16 @@
 package org.jetbrains.plugins.scala.typeSearch
 
 import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEverywhereContributor, SearchEverywhereContributorFactory, WeightedSearchEverywhereContributor}
+import com.intellij.ide.projectView.impl.nodes.ExternalLibrariesNode
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.psi.PsiMethod
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.Processor
+import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
@@ -64,9 +70,6 @@ object SearchStdFunctionByTypeContributor {
   class Factory extends SearchEverywhereContributorFactory[AnyRef] {
     override def createContributor(initEvent: AnActionEvent): SearchEverywhereContributor[AnyRef] =
       (new SearchStdFunctionByTypeContributor).asInstanceOf[SearchEverywhereContributor[AnyRef]]
-    // TODO: discuss
-//    override def getTab: SearchEverywhereTabDescriptor = SearchEverywhereTabDescriptor.IDE
-
   }
 }
 
@@ -101,9 +104,7 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
       else {
         var ctr = 0
         for (parameter <- patternParameters) {
-
           val isMatch = if (elementParametersStringified.contains(parameter)) 1 else 0
-          println(pattern, ": ", parameter, isMatch)
           ctr += isMatch
         }
         ctr
@@ -126,7 +127,31 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   }
 
-  override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = true
+  import com.intellij.psi.search.searches._
+  import com.intellij.psi.search.scope
+  import org.jetbrains.plugins.scala.caches
+  import com.intellij.psi.{PsiClass, PsiMethod}
+
+  override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
+    val name = selected.externalSignature.name
+    val project = ProjectManager.getInstance().getOpenProjects.apply(0)
+    val scope: GlobalSearchScope = GlobalSearchScope.allScope(project)
+    val ssncm = ScalaShortNamesCacheManager.getInstance(project)
+    val psiClass: Iterable[PsiClass] = ssncm.getClassesByName("KochamHarnasia", scope)
+    val psiMethod: Iterable[PsiMethod] = ssncm.methodsByName("pij")(scope)
+    for (p <- psiMethod) {
+      if (p != null) {
+        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
+        p.navigate(true)
+      }
+    }
+//    for (p <- psiClass) {
+//      println(p.getQualifiedName)
+//      new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
+//    }
+
+    false
+  }
 
   override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
 }
