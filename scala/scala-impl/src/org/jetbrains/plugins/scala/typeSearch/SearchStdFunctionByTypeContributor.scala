@@ -5,6 +5,7 @@ import com.intellij.ide.projectView.impl.nodes.ExternalLibrariesNode
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.psi.PsiMethod
@@ -135,20 +136,26 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
     val name = selected.externalSignature.name
     val project = ProjectManager.getInstance().getOpenProjects.apply(0)
-    val scope: GlobalSearchScope = GlobalSearchScope.allScope(project)
+    val modules = ModuleManager.getInstance(project).getModules
+    for (module <- modules) {
+      println(module.getName + ": " + module.getModuleFilePath)
+    }
+    val scope: GlobalSearchScope = GlobalSearchScope.moduleWithLibrariesScope(modules.apply(0)) // looks awful
     val ssncm = ScalaShortNamesCacheManager.getInstance(project)
-    val psiClass: Iterable[PsiClass] = ssncm.getClassesByName("KochamHarnasia", scope)
-    val psiMethod: Iterable[PsiMethod] = ssncm.methodsByName("pij")(scope)
-    for (p <- psiMethod) {
-      if (p != null) {
-        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
+
+    val psiMethods: Iterable[PsiMethod] = ssncm.methodsByName(name)(scope)
+    for (p <- psiMethods) {
+      println(p.getName, "::= ", p.getContainingFile.getVirtualFile.getPath)
+    }
+
+    var done = false
+    for (p <- psiMethods) {
+      if (p != null && !done) {
+//        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
         p.navigate(true)
+        done = true
       }
     }
-//    for (p <- psiClass) {
-//      println(p.getQualifiedName)
-//      new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
-//    }
 
     false
   }
