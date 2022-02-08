@@ -1,17 +1,16 @@
 package org.jetbrains.plugins.scala.typeSearch
 
 import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEverywhereContributor, SearchEverywhereContributorFactory, WeightedSearchEverywhereContributor}
-import com.intellij.ide.projectView.impl.nodes.ExternalLibrariesNode
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.util.Processor
+import com.intellij.util.{Processor, ThrowableRunnable}
+import com.intellij.util.SlowOperations.allowSlowOperations
 import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
+import org.jetbrains.plugins.scala.inReadAction
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
@@ -75,7 +74,6 @@ object SearchStdFunctionByTypeContributor {
 }
 
 class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContributor[StdFunctionRef] {
-  private val LOG = Logger.getInstance(classOf[SearchStdFunctionByTypeContributor])
   val cellRenderer = new MyCellRenderer
 
   override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new MyCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
@@ -128,36 +126,83 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   }
 
-  import com.intellij.psi.search.searches._
-  import com.intellij.psi.search.scope
-  import org.jetbrains.plugins.scala.caches
-  import com.intellij.psi.{PsiClass, PsiMethod}
-
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
-    val name = selected.externalSignature.name
-    val project = ProjectManager.getInstance().getOpenProjects.apply(0)
-    val modules = ModuleManager.getInstance(project).getModules
-    for (module <- modules) {
-      println(module.getName + ": " + module.getModuleFilePath)
-    }
-    val scope: GlobalSearchScope = GlobalSearchScope.moduleWithLibrariesScope(modules.apply(0)) // looks awful
-    val ssncm = ScalaShortNamesCacheManager.getInstance(project)
+    import org.jetbrains.plugins.scala.extensions
 
-    val psiMethods: Iterable[PsiMethod] = ssncm.methodsByName(name)(scope)
-    for (p <- psiMethods) {
-      println(p.getName, "::= ", p.getContainingFile.getVirtualFile.getPath)
-    }
+    class MyThread extends ThrowableRunnable[Throwable] {
+      override def run = {
 
-    var done = false
-    for (p <- psiMethods) {
-      if (p != null && !done) {
-//        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
-        p.navigate(true)
-        done = true
+        val name = selected.externalSignature.name
+        val project = ProjectManager.getInstance().getOpenProjects.apply(0)
+        val modules = ModuleManager.getInstance(project).getModules
+        for (module <- modules) {
+          println(module.getName + ": " + module.getModuleFilePath)
+        }
+        //    val scope: GlobalSearchScope = GlobalSearchScope.moduleWithLibrariesScope(modules.apply(0)) // looks awful
+        val ssncm = ScalaShortNamesCacheManager.getInstance(project)
+        val otherProjectScope = GlobalSearchScope.allScope(project)
+
+        val psiMethods: Iterable[PsiMethod] = inReadAction {
+          ssncm.methodsByName(name)(otherProjectScope)
+        }
+
+        for (p <- psiMethods) {
+          println(p.getName, "::= ", p.getContainingFile.getVirtualFile.getPath)
+        }
+
+        var done = false
+        for (p <- psiMethods) {
+          if (p != null && !done) {
+            //        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
+
+            extensions.invokeAndWait {
+              p.navigate(true)
+
+            }
+
+            done = true
+          }
+        }
       }
     }
 
-    false
+    allowSlowOperations(new MyThread)
+
+//    extensions.executeOnPooledThread {
+//      val name = selected.externalSignature.name
+//      val project = ProjectManager.getInstance().getOpenProjects.apply(0)
+//      val modules = ModuleManager.getInstance(project).getModules
+//      for (module <- modules) {
+//        println(module.getName + ": " + module.getModuleFilePath)
+//      }
+//      //    val scope: GlobalSearchScope = GlobalSearchScope.moduleWithLibrariesScope(modules.apply(0)) // looks awful
+//      val ssncm = ScalaShortNamesCacheManager.getInstance(project)
+//      val otherProjectScope = GlobalSearchScope.allScope(project)
+//
+//      val psiMethods: Iterable[PsiMethod] = inReadAction {
+//        ssncm.methodsByName(name)(otherProjectScope)
+//      }
+//
+//      for (p <- psiMethods) {
+//        println(p.getName, "::= ", p.getContainingFile.getVirtualFile.getPath)
+//      }
+//
+//      var done = false
+//      for (p <- psiMethods) {
+//        if (p != null && !done) {
+//  //        new OpenFileDescriptor(p.getProject, p.getContainingFile.getVirtualFile, 0, 0).navigate(true)
+//
+//          extensions.invokeAndWait {
+//            p.navigate(true)
+//
+//          }
+////          p.navigati
+//          done = true
+//        }
+//      }
+//    }
+
+    true
   }
 
   override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
