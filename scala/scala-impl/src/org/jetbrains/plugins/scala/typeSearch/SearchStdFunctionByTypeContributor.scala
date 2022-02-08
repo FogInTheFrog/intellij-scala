@@ -4,7 +4,7 @@ import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEve
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiMethod
+import com.intellij.psi.{PsiMethod, PsiSubstitutor}
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.{Processor, ThrowableRunnable}
 import com.intellij.util.SlowOperations.allowSlowOperations
@@ -131,20 +131,47 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
 
     class MyThread extends ThrowableRunnable[Throwable] {
-      override def run(): Unit = {
-        val name = selected.externalSignature.name
-        val projectEvent = SearchStdFunctionByTypeContributor.project.get
-        println("ActionEventProject: " + projectEvent.getProjectFilePath)
+      val FQClassName: String = selected.externalSignature.packageName
+      val FQClassAndMethodName: String = FQClassName + "\\#" + selected.externalSignature.name
+      val FQName: String = selected.externalSignature.name
 
+//      def isPsiAccurate(p: PsiMethod): Boolean = {
+//        val psiUnknown = p.getSignature(PsiSubstitutor.UNKNOWN)
+//        val psiMethodSig = psiUnknown.getName + " " + psiUnknown.getParameterTypes.foreach(_.toString)
+//
+//        println()
+//        println("psiMethodSig " + psiMethodSig)
+//        println("Searching results for: " + selected.externalSignature.uuid)
+//        println("PsiMethod compared is: " + p.getSignature(PsiSubstitutor.EMPTY).getName)
+//        print("Parameters: ")
+//        for (psi <- p.getParameterList.getParameters)
+//          print(psi.getName)
+//        print("\nReturnType: ")
+//        println(p.getReturnType.toString)
+//
+//        p != null
+//      }
+
+      def findMethodByFQN(scalaShortNamesCacheManager: ScalaShortNamesCacheManager,
+                          projectWithLibrariesScope: GlobalSearchScope): Option[PsiMethod] = {
+        scalaShortNamesCacheManager
+          .getClassByFQName(FQClassName, projectWithLibrariesScope)
+          .getAllMethods
+          .find(_.getName == FQName)
+      }
+
+      override def run(): Unit = {
+       val projectEvent = SearchStdFunctionByTypeContributor.project.get
         val scalaShortNamesCacheManager = ScalaShortNamesCacheManager.getInstance(projectEvent)
         val otherProjectScope = GlobalSearchScope.allScope(projectEvent)
 
-        val psiMethods: Iterable[PsiMethod] = inReadAction {
-          scalaShortNamesCacheManager.methodsByName(name)(otherProjectScope)
-        }
+        val psiMethodToNavigate: PsiMethod = findMethodByFQN(scalaShortNamesCacheManager, otherProjectScope).orNull
 
-        val isInteresting = (p: PsiMethod) => p != null
-        val psiMethodToNavigate: PsiMethod = psiMethods.find(isInteresting(_)).orNull
+//        val psiMethods: Iterable[PsiMethod] = inReadAction {
+//          scalaShortNamesCacheManager.methodsByName(FQClassAndMethodName)(otherProjectScope)
+//        }
+//
+//        val psiMethodToNavigate: PsiMethod = psiMethods.find(isPsiAccurate).orNull
 
         psiMethodToNavigate match {
           case null => println("psiMethodToNavigate is null")
