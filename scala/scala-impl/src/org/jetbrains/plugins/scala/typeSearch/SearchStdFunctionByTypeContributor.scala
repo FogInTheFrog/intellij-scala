@@ -4,12 +4,11 @@ import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEve
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiMethod, PsiSubstitutor}
+import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.{Processor, ThrowableRunnable}
 import com.intellij.util.SlowOperations.allowSlowOperations
 import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
-import org.jetbrains.plugins.scala.inReadAction
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
@@ -20,6 +19,12 @@ import javax.swing.{JLabel, JList, ListCellRenderer}
 import scala.language.postfixOps
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
+  // TODO: poor naming convention? I should consider using def here?
+  val getName: String = externalSignature.name
+  val getFQName: String = externalSignature.packageName + "#" + getName
+  val getPrettyName: String = externalSignature.name.split("\\$").apply(0)
+  val getPrettyFQName: String = externalSignature.packageName + "#" + getPrettyName
+  val getPrettyContext: String = (new ScalaExternalSignaturePrettifier).prettify(externalSignature)
 }
 
 class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
@@ -29,11 +34,7 @@ class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
                                             isSelected: Boolean, cellHasFocus: Boolean): Component = {
 
     // Adjust printed text
-    val prettifier = new ScalaExternalSignaturePrettifier
-    val functionName = value.externalSignature.name
-    val prettyContext = prettifier.prettify(value.externalSignature)
-
-    setText(functionName + ": " + prettyContext)
+    setText(value.getPrettyFQName + ": " + value.getPrettyContext)
 
     // Set colors
     var background: Color = null
@@ -125,21 +126,25 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
       consumer.process(itemDescriptor)
     }
-
   }
 
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
 
     class MyThread extends ThrowableRunnable[Throwable] {
       val FQClassName: String = selected.externalSignature.packageName
-      val FQName: String = selected.externalSignature.name
+      val FQName: String = selected.externalSignature.name.split("\\$").apply(0)
 
       def findMethodByFQN(scalaShortNamesCacheManager: ScalaShortNamesCacheManager,
                           projectWithLibrariesScope: GlobalSearchScope): Option[PsiMethod] = {
-        scalaShortNamesCacheManager
-          .getClassByFQName(FQClassName, projectWithLibrariesScope)
-          .getAllMethods
-          .find(_.getName == FQName)
+        try {
+          scalaShortNamesCacheManager
+            .getClassByFQName(FQClassName, projectWithLibrariesScope)
+            .getAllMethods
+            .find(_.getName == FQName)
+        }
+        catch {
+          case _: NullPointerException => None
+        }
       }
 
       override def run(): Unit = {
@@ -155,7 +160,6 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
         }
       }
     }
-
     allowSlowOperations(new MyThread)
 
     true // close SEWindow
