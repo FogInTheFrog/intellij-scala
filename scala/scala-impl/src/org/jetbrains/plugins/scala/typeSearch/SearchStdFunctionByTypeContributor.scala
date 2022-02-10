@@ -19,7 +19,7 @@ import javax.swing.{JLabel, JList, ListCellRenderer}
 import scala.language.postfixOps
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
-  // TODO: poor naming convention? I should consider using def here?
+  // TODO: poor naming convention? I should consider using def here
   val getName: String = externalSignature.name
   val getFQName: String = externalSignature.packageName + "#" + getName
   val getPrettyName: String = externalSignature.name.split("\\$").apply(0)
