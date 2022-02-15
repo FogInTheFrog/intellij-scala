@@ -13,9 +13,9 @@ import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
 
-import java.awt.{Color, Component}
+
 import java.io.File
-import javax.swing.{JLabel, JList, ListCellRenderer}
+import javax.swing.ListCellRenderer
 import scala.language.postfixOps
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
@@ -27,41 +27,6 @@ class StdFunctionRef(val externalSignature: ExternalSignature) {
   val getPrettyContext: String = (new ScalaExternalSignaturePrettifier).prettify(externalSignature)
 }
 
-class MyCellRenderer() extends JLabel with ListCellRenderer[StdFunctionRef] {
-  setOpaque(true)
-
-  override def getListCellRendererComponent(list: JList[_ <: StdFunctionRef], value: StdFunctionRef, index: Int,
-                                            isSelected: Boolean, cellHasFocus: Boolean): Component = {
-
-    // Adjust printed text
-    setText(value.getPrettyFQName + ": " + value.getPrettyContext)
-
-    // Set colors
-    var background: Color = null
-    var foreground: Color = null
-    val dropLocation = list.getDropLocation
-
-    // check if this cell is selected
-    if (dropLocation != null && !dropLocation.isInsert && dropLocation.getIndex == index) {
-      background = Color.BLUE
-      foreground = Color.WHITE
-
-    }
-    else if (isSelected) {
-      background = Color.PINK
-      foreground = Color.DARK_GRAY
-
-    }
-    else {
-      background = null
-      foreground = Color.LIGHT_GRAY
-    }
-
-    setBackground(background)
-    setForeground(foreground)
-    this
-  }
-}
 
 object SearchStdFunctionByTypeContributor {
   val file = new File("./scala/scala-impl/resources/inkuireTypeSearch")
@@ -77,9 +42,9 @@ object SearchStdFunctionByTypeContributor {
 }
 
 class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContributor[StdFunctionRef] {
-  val cellRenderer = new MyCellRenderer
+  val cellRenderer = new TypeSearchListCellRenderer
 
-  override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new MyCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
+  override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new TypeSearchListCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
 
   override def getSearchProviderId: String = getClass.getSimpleName
 
