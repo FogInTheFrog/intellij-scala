@@ -4,7 +4,7 @@ import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEve
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.psi.PsiMethod
+import com.intellij.psi.{PsiElement, PsiMethod}
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.{Processor, ThrowableRunnable}
 import com.intellij.util.SlowOperations.allowSlowOperations
@@ -12,7 +12,6 @@ import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
-
 
 import java.io.File
 import javax.swing.ListCellRenderer
@@ -81,52 +80,45 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
     weight
   }
 
-  override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator, consumer: Processor[_ >: FoundItemDescriptor[StdFunctionRef]]): Unit = {
+  private def findPSIForResult(resultRef: StdFunctionRef): PsiMethod = {
+    val FQClassName: String = resultRef.externalSignature.packageName
+    val FQName: String = resultRef.externalSignature.name.split("\\$").apply(0)
+
+    def findMethodByFQN(scalaShortNamesCacheManager: ScalaShortNamesCacheManager,
+                        projectWithLibrariesScope: GlobalSearchScope): Option[PsiMethod] = {
+      try {
+        scalaShortNamesCacheManager
+          .getClassByFQName(FQClassName, projectWithLibrariesScope)
+          .getAllMethods
+          .find(_.getName == FQName)
+      }
+      catch {
+        case _: NullPointerException => None
+      }
+    }
+
+    val projectEvent = SearchStdFunctionByTypeContributor.project.get
+    val scalaShortNamesCacheManager = ScalaShortNamesCacheManager.getInstance(projectEvent)
+    val otherProjectScope = GlobalSearchScope.allScope(projectEvent)
+
+    findMethodByFQN(scalaShortNamesCacheManager, otherProjectScope).orNull
+  }
+
+  override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator,
+                                     consumer: Processor[_ >: FoundItemDescriptor[StdFunctionRef]]): Unit = {
     val results = inkuireService.query(pattern)
 
     for (result <- results) {
-      val element: StdFunctionRef = new StdFunctionRef(result)
-      val weight = calculateWeightOfMatch(pattern, element)
-      val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](element, weight)
+      val resultRef: StdFunctionRef = new StdFunctionRef(result)
+      val weight = calculateWeightOfMatch(pattern, resultRef)
+      val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](resultRef, weight)
+      val psiMethod = findPSIForResult(resultRef)
 
       consumer.process(itemDescriptor)
     }
   }
 
   override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
-
-    class MyThread extends ThrowableRunnable[Throwable] {
-      val FQClassName: String = selected.externalSignature.packageName
-      val FQName: String = selected.externalSignature.name.split("\\$").apply(0)
-
-      def findMethodByFQN(scalaShortNamesCacheManager: ScalaShortNamesCacheManager,
-                          projectWithLibrariesScope: GlobalSearchScope): Option[PsiMethod] = {
-        try {
-          scalaShortNamesCacheManager
-            .getClassByFQName(FQClassName, projectWithLibrariesScope)
-            .getAllMethods
-            .find(_.getName == FQName)
-        }
-        catch {
-          case _: NullPointerException => None
-        }
-      }
-
-      override def run(): Unit = {
-       val projectEvent = SearchStdFunctionByTypeContributor.project.get
-        val scalaShortNamesCacheManager = ScalaShortNamesCacheManager.getInstance(projectEvent)
-        val otherProjectScope = GlobalSearchScope.allScope(projectEvent)
-
-        val psiMethodToNavigate: PsiMethod = findMethodByFQN(scalaShortNamesCacheManager, otherProjectScope).orNull
-
-        psiMethodToNavigate match {
-          case null => println("psiMethodToNavigate is null")
-          case _ => psiMethodToNavigate.navigate(true)
-        }
-      }
-    }
-    allowSlowOperations(new MyThread)
-
     true // close SEWindow
   }
 
