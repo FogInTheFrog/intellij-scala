@@ -40,7 +40,7 @@ object SearchStdFunctionByTypeContributor {
   }
 }
 
-class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContributor[StdFunctionRef] {
+class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContributor[PsiMethod] {
   val cellRenderer = new TypeSearchListCellRenderer
 
   override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new TypeSearchListCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
@@ -105,24 +105,28 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
   }
 
   override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator,
-                                     consumer: Processor[_ >: FoundItemDescriptor[StdFunctionRef]]): Unit = {
+                                     consumer: Processor[_ >: FoundItemDescriptor[PsiMethod]]): Unit = {
     val results = inkuireService.query(pattern)
 
     for (result <- results) {
       val resultRef: StdFunctionRef = new StdFunctionRef(result)
       val weight = calculateWeightOfMatch(pattern, resultRef)
-      val itemDescriptor = new FoundItemDescriptor[StdFunctionRef](resultRef, weight)
       val psiMethod = findPSIForResult(resultRef)
+      val itemDescriptor = new FoundItemDescriptor[PsiMethod](psiMethod, weight)
 
       consumer.process(itemDescriptor)
     }
   }
 
-  override def processSelectedItem(selected: StdFunctionRef, modifiers: Int, searchText: String): Boolean = {
+  override def processSelectedItem(selected: PsiMethod, modifiers: Int, searchText: String): Boolean = {
+    selected match {
+      case null => println("psiMethodToNavigate is null")
+      case _ => selected.navigate(true)
+    }
     true // close SEWindow
   }
 
-  override def getDataForItem(element: StdFunctionRef, dataId: String): Option[Any] = null
+  override def getDataForItem(element: PsiMethod, dataId: String): Option[Any] = null
 }
 
 
