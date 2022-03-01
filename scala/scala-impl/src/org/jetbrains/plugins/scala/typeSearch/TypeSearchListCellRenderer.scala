@@ -57,5 +57,6 @@ import javax.swing.{JLabel, JList, ListCellRenderer}
 class TypeSearchListCellRenderer() extends PsiElementListCellRenderer[PsiMethod] {
   override def getElementText(element: PsiMethod): String = element.getName
 
-  override def getContainerText(element: PsiMethod, name: String): String = element.getName + "CHUJ"
+  override def getContainerText(element: PsiMethod, name: String): String =
+    "(" + element.getParameters.mkString + "=>" + element.getReturnType.toString + ")"
 }
