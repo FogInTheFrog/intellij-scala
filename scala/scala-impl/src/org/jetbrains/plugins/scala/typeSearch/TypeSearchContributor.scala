@@ -4,7 +4,7 @@ import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEve
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
-import com.intellij.psi.{PsiElement, PsiMethod}
+import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.{Processor, ThrowableRunnable}
 import com.intellij.util.SlowOperations.allowSlowOperations
@@ -12,13 +12,13 @@ import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
 import org.jetbrains.plugins.scala.typeSearch.SearchStdFunctionByTypeContributor.inkuireService
 import org.virtuslab.inkuire.engine.common.model.ExternalSignature
 import org.virtuslab.inkuire.engine.common.service.ScalaExternalSignaturePrettifier
+import com.intellij.openapi.application.ApplicationManager
 
 import java.io.File
 import javax.swing.ListCellRenderer
 import scala.language.postfixOps
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
-  // TODO: poor naming convention? I should consider using def here
   val getName: String = externalSignature.name
   val getFQName: String = externalSignature.packageName + "#" + getName
   val getPrettyName: String = externalSignature.name.split("\\$").apply(0)
@@ -43,7 +43,8 @@ object SearchStdFunctionByTypeContributor {
 class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContributor[PsiMethod] {
   val cellRenderer = new TypeSearchListCellRenderer
 
-  override def getElementsRenderer: ListCellRenderer[_ >: Any] = (new TypeSearchListCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
+  override def getElementsRenderer: ListCellRenderer[_ >: Any] =
+    (new TypeSearchListCellRenderer).asInstanceOf[ListCellRenderer[_ >: Any]]
 
   override def getSearchProviderId: String = getClass.getSimpleName
 
@@ -109,20 +110,31 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
     val results = inkuireService.query(pattern)
 
     for (result <- results) {
-      val resultRef: StdFunctionRef = new StdFunctionRef(result)
-      val weight = calculateWeightOfMatch(pattern, resultRef)
-      val psiMethod = findPSIForResult(resultRef)
-      val itemDescriptor = new FoundItemDescriptor[PsiMethod](psiMethod, weight)
+      class MyRunnable extends Runnable {
+        override def run(): Unit = {
+          val resultRef: StdFunctionRef = new StdFunctionRef(result)
+          val weight = calculateWeightOfMatch(pattern, resultRef)
+          val psiMethod = findPSIForResult(resultRef)
+          val itemDescriptor = new FoundItemDescriptor[PsiMethod](psiMethod, weight)
 
-      consumer.process(itemDescriptor)
+          consumer.process(itemDescriptor)
+        }
+      }
+
+      ApplicationManager.getApplication.runReadAction(new MyRunnable)
     }
   }
 
   override def processSelectedItem(selected: PsiMethod, modifiers: Int, searchText: String): Boolean = {
-    selected match {
-      case null => println("psiMethodToNavigate is null")
-      case _ => selected.navigate(true)
+    class MyThread extends ThrowableRunnable[Throwable] {
+      override def run(): Unit = {
+        selected match {
+          case null => println("psiMethodToNavigate is null")
+          case _ => selected.navigate(true)
+        }
+      }
     }
+    allowSlowOperations(new MyThread)
     true // close SEWindow
   }
 
