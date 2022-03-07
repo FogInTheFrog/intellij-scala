@@ -17,6 +17,9 @@ import com.intellij.openapi.application.ApplicationManager
 import java.io.File
 import javax.swing.ListCellRenderer
 import scala.language.postfixOps
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
   val getName: String = externalSignature.name
@@ -29,7 +32,9 @@ class StdFunctionRef(val externalSignature: ExternalSignature) {
 
 object SearchStdFunctionByTypeContributor {
   val file = new File("./scala/scala-impl/resources/inkuireTypeSearch")
-  var inkuireService = new InkuireService(file.toURI.toURL.toString)
+  val inkuireService: Future[InkuireService] = Future {
+    new InkuireService(file.toURI.toURL.toString)
+  }
   var project: Option[Project] = None
 
   class Factory extends SearchEverywhereContributorFactory[AnyRef] {
@@ -107,7 +112,7 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
 
   override def fetchWeightedElements(pattern: String, progressIndicator: ProgressIndicator,
                                      consumer: Processor[_ >: FoundItemDescriptor[PsiMethod]]): Unit = {
-    val results = inkuireService.query(pattern)
+    val results = Await.result(inkuireService, Duration.Inf).query(pattern)
 
     for (result <- results) {
       class MyRunnable extends Runnable {
