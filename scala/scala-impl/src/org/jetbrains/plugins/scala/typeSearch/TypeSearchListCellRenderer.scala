@@ -1,7 +1,7 @@
 package org.jetbrains.plugins.scala.typeSearch
 
 import com.intellij.ide.util.PsiElementListCellRenderer
-import com.intellij.psi.{PsiMethod, PsiSubstitutor}
+import com.intellij.psi.PsiMethod
 import org.jetbrains.plugins.scala.lang.psi.impl.toplevel.typedef.ScClassImpl
 import org.jetbrains.plugins.scala.lang.psi.light.ScFunctionWrapper
 import org.jetbrains.plugins.scala.lang.psi.types.TypePresentationContext

@@ -9,7 +9,6 @@ import org.virtuslab.inkuire.engine.common.serialization.EngineModelSerializers
 import org.virtuslab.inkuire.engine.common.service.DefaultSignatureResolver
 import org.virtuslab.inkuire.engine.common.service.SubstitutionMatchService
 
-import java.io.File
 import java.net.URL
 import scala.io.Source
 import scala.util.chaining._

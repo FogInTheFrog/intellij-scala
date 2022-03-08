@@ -17,9 +17,8 @@ import com.intellij.openapi.application.ApplicationManager
 import java.io.File
 import javax.swing.ListCellRenderer
 import scala.language.postfixOps
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
 
 class StdFunctionRef(val externalSignature: ExternalSignature) {
   val getName: String = externalSignature.name
