@@ -26,7 +26,6 @@ class OperatorCharacterDecoder() {
     for (s <- decodeMap) {
       temp = temp.replaceAll(s._1, s._2)
     }
-    println(input + "<->" + temp)
 
     temp
   }

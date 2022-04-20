@@ -1,15 +1,13 @@
 package org.jetbrains.plugins.scala.typeSearch
 
-import com.intellij.ide.actions.searcheverywhere.{
-  FoundItemDescriptor, SearchEverywhereContributor,
-  SearchEverywhereContributorFactory, WeightedSearchEverywhereContributor
-}
+import com.intellij.ide.actions.searcheverywhere.{FoundItemDescriptor, SearchEverywhereContributor, SearchEverywhereContributorFactory, WeightedSearchEverywhereContributor}
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiMethod
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.serviceContainer.AlreadyDisposedException
 import com.intellij.util.SlowOperations.allowSlowOperations
 import com.intellij.util.{Processor, ThrowableRunnable}
 import org.jetbrains.plugins.scala.caches.ScalaShortNamesCacheManager
@@ -153,21 +151,27 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
           .find(_.getName == FQName)
       }
       catch {
-        case _: NullPointerException => null
+        case _: NullPointerException => None
       }
     }
 
-    val projectEvent = SearchStdFunctionByTypeContributor.project.get
-    val scalaShortNamesCacheManager = ScalaShortNamesCacheManager.getInstance(projectEvent)
-    val otherProjectScope = GlobalSearchScope.allScope(projectEvent)
+    try {
+      val projectEvent = SearchStdFunctionByTypeContributor.project.get
+      val scalaShortNamesCacheManager = ScalaShortNamesCacheManager.getInstance(projectEvent)
+      val otherProjectScope = GlobalSearchScope.allScope(projectEvent)
 
-    findMethodByFQN(scalaShortNamesCacheManager, otherProjectScope).orNull
+      findMethodByFQN(scalaShortNamesCacheManager, otherProjectScope).orNull
+    }
+    catch {
+      case _: AlreadyDisposedException => null
+      case _: NullPointerException => null
+    }
   }
 
   override def fetchWeightedElements(userInput: String, progressIndicator: ProgressIndicator,
                                      consumer: Processor[_ >: FoundItemDescriptor[PsiMethod]]): Unit = {
     val parsedInput = new UserInputParsed(userInput)
-    val results = Await.result(inkuireService, Duration.Inf).query(parsedInput.pattern)
+    val results = Await.result(inkuireService, Duration.apply(5, "s")).query(parsedInput.pattern)
 
     for (result <- results) {
       class MyRunnable extends Runnable {
@@ -176,9 +180,11 @@ class SearchStdFunctionByTypeContributor extends WeightedSearchEverywhereContrib
           val weight = calculateWeightOfMatch(parsedInput.pattern, resultRef)
           val psiMethod = findPSIsForResult(resultRef, parsedInput.packages)
 
-          val itemDescriptor = new FoundItemDescriptor[PsiMethod](psiMethod, weight)
+          if (psiMethod != null) {
+            val itemDescriptor = new FoundItemDescriptor[PsiMethod](psiMethod, weight)
 
-          consumer.process(itemDescriptor)
+            consumer.process(itemDescriptor)
+          }
         }
       }
 
