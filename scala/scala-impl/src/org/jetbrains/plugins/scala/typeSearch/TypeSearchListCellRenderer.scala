@@ -54,7 +54,11 @@ class TypeSearchListCellRenderer() extends PsiElementListCellRenderer[PsiMethod]
     }
   }
 
-  override def getElementText(element: PsiMethod): String = element.getName + renderMethodTypes(element)
+  override def getElementText(element: PsiMethod): String = {
+    val decoder = new OperatorCharacterDecoder()
+
+    decoder.decodeString(element.getName) + renderMethodTypes(element)
+  }
 
   override def getContainerText(element: PsiMethod, name: String): String = {
     try {
